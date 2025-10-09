@@ -12,6 +12,8 @@ export default function NotesClient() {
   const supabase = useMemo(() => createClient(), []);
   const [notes, setNotes] = useState<Note[]>([]);
   const [newNote, setNewNote] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -35,6 +37,19 @@ export default function NotesClient() {
   const handleDelete = async (id: number) => {
     await supabase.from("notes").delete().eq("id", id);
     setNotes(notes.filter((note) => note.id !== id));
+  };
+
+  const handleEdit = (note: Note) => {
+    setEditingId(note.id);
+    setEditValue(note.title);
+  };
+
+  const handleUpdate = async (id: number) => {
+    if (!editValue) return;
+    await supabase.from("notes").update({ title: editValue }).eq("id", id);
+    setEditingId(null);
+    const { data } = await supabase.from("notes").select();
+    setNotes(data || []);
   };
 
   return (
@@ -64,13 +79,46 @@ export default function NotesClient() {
             key={note.id}
             className="flex justify-between items-center border p-2 rounded"
           >
-            <span>{note.title}</span>
-            <button
-              onClick={() => handleDelete(note.id)}
-              className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
-            >
-              Delete
-            </button>
+            {editingId === note.id ? (
+              <div className="flex gap-2 flex-1">
+                <input
+                  type="text"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  className="border p-2 rounded flex-1"
+                />
+                <button
+                  onClick={() => handleUpdate(note.id)}
+                  className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => setEditingId(null)}
+                  className="bg-gray-400 text-white px-2 py-1 rounded hover:bg-gray-500"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <>
+                <span>{note.title}</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleEdit(note)}
+                    className="bg-yellow-500 text-white px-2 py-1 rounded hover:bg-yellow-600"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(note.id)}
+                    className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </>
+            )}
           </li>
         ))}
       </ul>

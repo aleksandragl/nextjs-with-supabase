@@ -10,12 +10,12 @@ export default async function Page() {
       {/* Serveri Read */}
       <div>
         <h1 className="text-2xl font-bold mb-2">Server-side Notes</h1>
-        <pre className="bg-gray-100 p-4 rounded">
+        <pre className="bg-gray-100 text-black p-4 rounded">
           {JSON.stringify(notes, null, 2)}
         </pre>
       </div>
 
-      {/* kliendi komponent с Read + Create + Delete */}
+      {/* kliendi komponent с Read + Create + Delete + Update */}
       <div>
         <NotesClient />
       </div>
