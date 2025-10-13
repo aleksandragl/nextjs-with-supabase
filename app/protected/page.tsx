@@ -1,22 +1,37 @@
-import { redirect } from "next/navigation";
+"use client";
 
-import { createClient } from "@/lib/supabase/server";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { redirect } from "next/navigation";
 import { InfoIcon } from "lucide-react";
 import { FetchDataSteps } from "@/components/tutorial/fetch-data-steps";
+import { User } from "@supabase/supabase-js";
 
-export default async function ProtectedPage() {
-  const supabase = await createClient();
+export default function ProtectedPage() {
+  const supabase = createClient();
+  const [user, setUser] = useState<User | null>(null); // any
+  useEffect(() => {
+    const getUser = async () => {
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
+      if (error || !session) {
+        redirect("/auth/login");
+        return;
+      }
+      setUser(session.user);
+    };
+    getUser();
+  }, [supabase]);
 
-  const { data, error } = await supabase.auth.getClaims();
-  if (error || !data?.claims) {
-    redirect("/auth/login");
-  }
+  if (!user) return <div>Loading...</div>;
 
   return (
     <div className="flex-1 w-full flex flex-col gap-12">
       <div className="w-full">
         <div className="bg-accent text-sm p-3 px-5 rounded-md text-foreground flex gap-3 items-center">
-          <InfoIcon size="16" strokeWidth={2} />
+          <InfoIcon size={16} strokeWidth={2} />
           This is a protected page that you can only see as an authenticated
           user
         </div>
@@ -24,7 +39,7 @@ export default async function ProtectedPage() {
       <div className="flex flex-col gap-2 items-start">
         <h2 className="font-bold text-2xl mb-4">Your user details</h2>
         <pre className="text-xs font-mono p-3 rounded border max-h-32 overflow-auto">
-          {JSON.stringify(data.claims, null, 2)}
+          {JSON.stringify(user, null, 2)}
         </pre>
       </div>
       <div>

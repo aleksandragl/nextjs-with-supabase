@@ -1,13 +1,17 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import TodoClient from "./TodoClient";
 
 export default async function Page() {
-  const supabase = await createClient();
-  const { data: todos } = await supabase.from("todos").select();
+  const supabase = createAdminClient();
+  const { data: todos, error } = await supabase.from("todos").select();
+
+  if (error) {
+    console.error("Error fetching todos:", error.message);
+  }
 
   return (
     <div className="p-8 space-y-8">
-      {/* Serveri Read */}
+      {/* Server-side Read */}
       <div>
         <h1 className="text-2xl font-bold mb-2">Server-side TODOs</h1>
         <pre className="bg-gray-100 text-black p-4 rounded">
@@ -15,7 +19,7 @@ export default async function Page() {
         </pre>
       </div>
 
-      {/* Kliendi Read + Create + Delete + Update */}
+      {/* Client-side CRUD */}
       <div>
         <TodoClient />
       </div>
