@@ -1,55 +1,77 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect } from "react";
+import * as notes from "@/utils/notes";
 
-type Note = {
-  id: number;
-  title: string;
-};
+type Note = { id: number; title: string };
 
 export default function NotesClient() {
-  const supabase = useMemo(() => createClient(), []);
-  const [notes, setNotes] = useState<Note[]>([]);
+  const [notesList, setNotesList] = useState<Note[]>([]);
   const [newNote, setNewNote] = useState("");
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editValue, setEditValue] = useState("");
   const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
 
   useEffect(() => {
     const fetchNotes = async () => {
-      const { data } = await supabase.from("notes").select();
-      setNotes(data || []);
+      try {
+        const data = await notes.fetchNotes();
+        setNotesList(data);
+      } catch (error) {
+        console.error("Error fetching notes:", error);
+      }
     };
     fetchNotes();
-  }, [supabase]);
+  }, []);
 
   const handleAdd = async () => {
     if (!newNote) return;
     setLoading(true);
-    await supabase.from("notes").insert({ title: newNote });
-    setNewNote("");
-    const { data } = await supabase.from("notes").select();
-    setNotes(data || []);
-    setLoading(false);
+    try {
+      await notes.addNote(newNote);
+      setNewNote("");
+      const updatedNotes = await notes.fetchNotes();
+      setNotesList(updatedNotes);
+    } catch (error) {
+      console.error("Error adding note:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDelete = async (id: number) => {
-    await supabase.from("notes").delete().eq("id", id);
-    setNotes(notes.filter((note) => note.id !== id));
+    try {
+      await notes.deleteNote(id);
+      setNotesList(notesList.filter((note) => note.id !== id));
+    } catch (error) {
+      console.error("Error deleting note:", error);
+    }
   };
 
   const handleEdit = (note: Note) => {
     setEditingId(note.id);
-    setEditValue(note.title);
+    setEditingTitle(note.title);
   };
 
   const handleUpdate = async (id: number) => {
-    if (!editValue) return;
-    await supabase.from("notes").update({ title: editValue }).eq("id", id);
+    if (!editingTitle) return;
+    setLoading(true);
+    try {
+      await notes.updateNote(id, editingTitle);
+      const updatedNotes = await notes.fetchNotes();
+      setNotesList(updatedNotes);
+      setEditingId(null);
+      setEditingTitle("");
+    } catch (error) {
+      console.error("Error updating note:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = () => {
     setEditingId(null);
-    const { data } = await supabase.from("notes").select();
-    setNotes(data || []);
+    setEditingTitle("");
   };
 
   return (
@@ -74,28 +96,29 @@ export default function NotesClient() {
       </div>
 
       <ul className="space-y-2">
-        {notes.map((note) => (
+        {notesList.map((note) => (
           <li
             key={note.id}
             className="flex justify-between items-center border p-2 rounded"
           >
             {editingId === note.id ? (
-              <div className="flex gap-2 flex-1">
+              <div className="flex flex-1 gap-2">
                 <input
                   type="text"
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  className="border p-2 rounded flex-1"
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  className="border p-1 rounded flex-1"
                 />
                 <button
                   onClick={() => handleUpdate(note.id)}
-                  className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
+                  disabled={loading}
+                  className="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 disabled:opacity-50"
                 >
                   Save
                 </button>
                 <button
-                  onClick={() => setEditingId(null)}
-                  className="bg-gray-400 text-white px-2 py-1 rounded hover:bg-gray-500"
+                  onClick={handleCancel}
+                  className="bg-gray-300 text-black px-2 py-1 rounded hover:bg-gray-400"
                 >
                   Cancel
                 </button>
