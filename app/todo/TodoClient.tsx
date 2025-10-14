@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect } from "react";
+import * as todos from "@/utils/todos";
 
 type Todo = {
   id: number;
@@ -9,58 +9,77 @@ type Todo = {
 };
 
 export default function TodoClient() {
-  const supabase = useMemo(() => createClient(), []);
-  const [todos, setTodos] = useState<Todo[]>([]);
+  const [todosList, setTodosList] = useState<Todo[]>([]);
   const [newTodo, setNewTodo] = useState("");
-  const [editingId, setEditingId] = useState<number | null>(null); //update ks
-  const [editValue, setEditValue] = useState(""); //update ks
-
   const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
 
-  // Fetch todos
   useEffect(() => {
     const fetchTodos = async () => {
-      const { data } = await supabase.from("todos").select();
-      setTodos(data || []);
+      try {
+        const data = await todos.fetchTodos();
+        setTodosList(data);
+      } catch (error) {
+        console.error("Error fetching todos:", error);
+      }
     };
     fetchTodos();
-  }, [supabase]);
+  }, []);
 
-  // Create
   const handleAdd = async () => {
     if (!newTodo) return;
     setLoading(true);
-    await supabase.from("todos").insert({ title: newTodo });
-    setNewTodo("");
-    const { data } = await supabase.from("todos").select();
-    setTodos(data || []);
-    setLoading(false);
+    try {
+      await todos.addTodo(newTodo);
+      setNewTodo("");
+      const updatedTodos = await todos.fetchTodos();
+      setTodosList(updatedTodos);
+    } catch (error) {
+      console.error("Error adding todo:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Delete
   const handleDelete = async (id: number) => {
-    await supabase.from("todos").delete().eq("id", id);
-    setTodos(todos.filter((t) => t.id !== id));
+    try {
+      await todos.deleteTodo(id);
+      setTodosList(todosList.filter((todo) => todo.id !== id));
+    } catch (error) {
+      console.error("Error deleting todo:", error);
+    }
   };
 
   const handleEdit = (todo: Todo) => {
     setEditingId(todo.id);
-    setEditValue(todo.title);
+    setEditingTitle(todo.title);
   };
 
-  // salvestada muudatusi update is
   const handleUpdate = async (id: number) => {
-    if (!editValue) return;
-    await supabase.from("todos").update({ title: editValue }).eq("id", id);
+    if (!editingTitle) return;
+    setLoading(true);
+    try {
+      await todos.updateTodo(id, editingTitle);
+      const updatedTodos = await todos.fetchTodos();
+      setTodosList(updatedTodos);
+      setEditingId(null);
+      setEditingTitle("");
+    } catch (error) {
+      console.error("Error updating todo:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = () => {
     setEditingId(null);
-    const { data } = await supabase.from("todos").select();
-    setTodos(data || []);
+    setEditingTitle("");
   };
 
   return (
     <div className="p-4 space-y-4">
       <h2 className="text-xl font-bold">Client-side TODOs</h2>
-
       <div className="flex gap-2">
         <input
           type="text"
@@ -77,30 +96,30 @@ export default function TodoClient() {
           Add
         </button>
       </div>
-
       <ul className="space-y-2">
-        {todos.map((todo) => (
+        {todosList.map((todo) => (
           <li
             key={todo.id}
             className="flex justify-between items-center border p-2 rounded"
           >
             {editingId === todo.id ? (
-              <div className="flex gap-2 flex-1">
+              <div className="flex flex-1 gap-2">
                 <input
                   type="text"
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  className="border p-2 rounded flex-1"
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  className="border p-1 rounded flex-1"
                 />
                 <button
                   onClick={() => handleUpdate(todo.id)}
-                  className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
+                  disabled={loading}
+                  className="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 disabled:opacity-50"
                 >
                   Save
                 </button>
                 <button
-                  onClick={() => setEditingId(null)}
-                  className="bg-gray-400 text-white px-2 py-1 rounded hover:bg-gray-500"
+                  onClick={handleCancel}
+                  className="bg-gray-300 text-black px-2 py-1 rounded hover:bg-gray-400"
                 >
                   Cancel
                 </button>
